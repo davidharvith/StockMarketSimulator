@@ -1,0 +1,138 @@
+package com.cli;
+
+import com.datafetcher.DataFetcher;
+import com.model.Stock;
+import com.model.Trader;
+import com.simulation.StockExchange;
+import com.strategy.Strategy;
+import com.strategy.StrategyFactory;
+
+import java.time.LocalDate;
+import java.util.*;
+
+public class CLI {
+    public static void main(String[] args) throws DataFetcher.APILimitExceededException {
+        Scanner scanner = new Scanner(System.in);
+        DataFetcher dataFetcher = new DataFetcher();
+
+        // Get stock symbols
+        List<String> stockSymbols = getStockSymbols(scanner);
+
+        // Get strategies count
+        int strategyCount = getStrategyCount(scanner);
+
+        // Get strategy names
+        List<Strategy> strategies = getStrategies(scanner, strategyCount);
+
+        // Get simulation duration
+        int yearsBack = getSimulationDuration(scanner);
+
+        // Fetch stock data
+        List<Stock> stocks = dataFetcher.fetchHistoricalData(stockSymbols, yearsBack);
+
+        // Create traders
+        List<Trader> traders = getTraders(scanner, strategies);
+
+        // Create and run StockExchange simulation
+        StockExchange exchange = new StockExchange(stocks, traders, LocalDate.now().minusYears(yearsBack));
+        exchange.runSimulation();
+
+        scanner.close();
+
+
+    }
+
+    // Method to get stock symbols
+    private static List<String> getStockSymbols(Scanner scanner) {
+        List<String> stockSymbols;
+        while (true) {
+            System.out.println("Enter stock symbols separated by spaces (up to 25 stocks), press enter when done:");
+            stockSymbols = Arrays.asList(scanner.nextLine().split(" "));
+            if (stockSymbols.size() <= 25 && !stockSymbols.isEmpty()) {
+                break;
+            } else {
+                System.out.println("Invalid input. Please enter up to 25 stock symbols.");
+            }
+        }
+        return stockSymbols;
+    }
+
+    // Method to get strategy count
+    private static int getStrategyCount(Scanner scanner) {
+        int strategyCount;
+        while (true) {
+            System.out.println("How many strategies do you want to use?");
+            try {
+                strategyCount = Integer.parseInt(scanner.nextLine());
+                if (strategyCount > 0) {
+                    break;
+                } else {
+                    System.out.println("Please enter a positive number for the strategy count.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a number.");
+            }
+        }
+        return strategyCount;
+    }
+
+    // Method to get strategies
+    private static List<Strategy> getStrategies(Scanner scanner, int strategyCount) {
+        List<Strategy> strategies = new ArrayList<>();
+        for (int i = 0; i < strategyCount; i++) {
+            while (true) {
+                System.out.println("Enter strategy " + (i + 1) + " name. Choose from the following: " + StrategyFactory.getAvailableStrategiesNames());
+                String strategyName = scanner.nextLine();
+                Strategy strategy = StrategyFactory.create(strategyName);
+                if (strategy != null) {
+                    strategies.add(strategy);
+                    break;
+                } else {
+                    System.out.println("Invalid strategy name. Please choose a valid strategy.");
+                }
+            }
+        }
+        return strategies;
+    }
+
+    // Method to get simulation duration
+    private static int getSimulationDuration(Scanner scanner) {
+        int yearsBack;
+        while (true) {
+            System.out.println("Enter the number of years for the simulation:");
+            try {
+                yearsBack = Integer.parseInt(scanner.nextLine());
+                if (yearsBack > 0) {
+                    break;
+                } else {
+                    System.out.println("Please enter a positive number for the number of years.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a number.");
+            }
+        }
+        return yearsBack;
+    }
+
+    // Method to create traders
+    private static List<Trader> getTraders(Scanner scanner, List<Strategy> strategies) {
+        List<Trader> traders = new ArrayList<>();
+        for (Strategy strategy : strategies) {
+            while (true) {
+                System.out.println("Enter starting money for trader using strategy " + strategy.getName() + ":");
+                try {
+                    double startingMoney = Double.parseDouble(scanner.nextLine());
+                    if (startingMoney > 0) {
+                        traders.add(new Trader(strategy, startingMoney));
+                        break;
+                    } else {
+                        System.out.println("Starting money must be positive. Please enter a valid amount.");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid input. Please enter a valid number for starting money.");
+                }
+            }
+        }
+        return traders;
+    }
+}

@@ -1,0 +1,51 @@
+package com.strategy;
+
+import com.model.Stock;
+import com.model.Trader;
+
+import java.util.Map;
+import java.util.List;
+import java.util.HashMap;
+
+public class MovingAverageCrossoverStrategy implements Strategy {
+
+    private final String name = "Moving Average Crossover Strategy";
+
+    @Override
+    public Map<String, Integer> makeDecision(List<Stock> marketStocks, Trader trader) {
+        Map<String, Integer> decision = new HashMap<>();
+        for (Stock stock : marketStocks) {
+            // Calculate short-term (50) and long-term (200) moving averages
+            double shortTermSMA = calculateSMA(stock, 50);
+            double longTermSMA = calculateSMA(stock, 200);
+
+            // Decision logic
+            if (shortTermSMA > longTermSMA) {
+                // Buy signal
+                decision.put(stock.getSymbol(), 1);
+            } else if (shortTermSMA < longTermSMA) {
+                // Sell signal
+                decision.put(stock.getSymbol(), -1);
+            }
+        }
+        return decision;
+    }
+
+    private double calculateSMA(Stock stock, int period) {
+        List<Double> closingPrices = stock.getClosingPrices();
+        int size = closingPrices.size();
+        if (size < period) {
+            return 0;
+        }
+        double sum = 0;
+        for (int i = size - period; i < size; i++) {
+            sum += closingPrices.get(i);
+        }
+        return sum / period;
+    }
+
+    @Override
+    public String getName() {
+        return name;
+    }
+}

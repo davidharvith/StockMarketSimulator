@@ -1,0 +1,17 @@
+package com.strategy;
+
+import com.model.Stock;
+import com.model.Trader;
+
+import java.util.Map;
+import java.util.List;
+
+public interface Strategy {
+
+    /**
+     * Makes a trading decision (buy/sell) based on the current market and the trader's portfolio.
+     */
+    Map<String, Integer> makeDecision (List<Stock> marketStocks, Trader trader);
+
+    String getName();
+}
