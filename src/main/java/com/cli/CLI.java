@@ -16,7 +16,7 @@ public class CLI {
         DataFetcher dataFetcher = new DataFetcher();
 
         // Get stock symbols
-        List<String> stockSymbols = getStockSymbols(scanner);
+        List<String> stockSymbols = getStockSymbols(scanner, dataFetcher);
 
         // Get strategies count
         int strategyCount = getStrategyCount(scanner);
@@ -43,19 +43,35 @@ public class CLI {
     }
 
     // Method to get stock symbols
-    private static List<String> getStockSymbols(Scanner scanner) {
+    private static List<String> getStockSymbols(Scanner scanner, DataFetcher dataFetcher) {
         List<String> stockSymbols;
+
         while (true) {
+            stockSymbols = new ArrayList<>();  // Reset list every loop
             System.out.println("Enter stock symbols separated by spaces (up to 25 stocks), press enter when done:");
-            stockSymbols = Arrays.asList(scanner.nextLine().split(" "));
-            if (stockSymbols.size() <= 25 && !stockSymbols.isEmpty()) {
-                break;
-            } else {
-                System.out.println("Invalid input. Please enter up to 25 stock symbols.");
+
+            String[] inputs = scanner.nextLine().split(" ");
+            boolean allValid = true;  // Track validity
+
+            for (String symbol : inputs) {
+                if (dataFetcher.isValidStockSymbol(symbol)) {
+                    stockSymbols.add(symbol);
+                } else {
+                    System.out.println("❌ Invalid stock symbol: " + symbol);
+                    allValid = false;  // Found an invalid symbol
+                }
             }
+
+            // If all inputs are valid and within the limit, break out of loop
+            if (allValid && !stockSymbols.isEmpty() && stockSymbols.size() <= 25) {
+                break;
+            }
+
+            System.out.println("⚠️ Please enter up to 25 valid stock symbols.");
         }
         return stockSymbols;
     }
+
 
     // Method to get strategy count
     private static int getStrategyCount(Scanner scanner) {
