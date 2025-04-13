@@ -9,118 +9,152 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 
+/**
+ * Represents a stock with historical price data and technical analysis capabilities.
+ */
 public class Stock {
+
+    private static final int DEFAULT_RSI_PERIOD = 14;
 
     private final String symbol;
     private final List<StockData> historicalData;  // List of historical stock data (price, date)
     private double currentPrice;
-    private int indx = 0;
-    private BarSeries series; // ta4j series
+    private int index = 0;
+    private BarSeries series; // ta4j series for technical indicators
     private RSIIndicator rsiIndicator; // ta4j RSI indicator
 
-    // Constructor to initialize with historical data
+    /**
+     * Constructs a Stock object with a symbol and historical price data.
+     *
+     * @param symbol         Stock symbol (e.g., "AAPL", "GOOG")
+     * @param historicalData List of historical stock data
+     */
     public Stock(String symbol, List<StockData> historicalData) {
         this.symbol = symbol;
         this.historicalData = historicalData;
         if (!historicalData.isEmpty()) {
-            this.currentPrice = historicalData.get(indx).getPrice();
+            this.currentPrice = historicalData.get(index).getPrice();
             this.series = new BaseBarSeries();
 
-            // Convert your data to ta4j bars and add them to the series
             for (StockData data : historicalData) {
                 ZonedDateTime dateTime = data.getDate().atStartOfDay(ZoneId.systemDefault());
                 this.series.addBar(dateTime, 0, 0, 0, data.getPrice(), 0);
             }
 
-            // Create RSI indicator based on the series
             ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-            this.rsiIndicator = new RSIIndicator(closePrice, 14); // Default period of 14
+            this.rsiIndicator = new RSIIndicator(closePrice, DEFAULT_RSI_PERIOD);
         }
     }
 
-    // Get the current stock price
+    /**
+     * Returns the current price of the stock.
+     *
+     * @return Current stock price
+     */
     public double getCurrentPrice() {
         return currentPrice;
     }
 
+    /**
+     * Sets the current price of the stock.
+     *
+     * @param currentPrice New stock price
+     */
     public void setCurrentPrice(double currentPrice) {
         this.currentPrice = currentPrice;
     }
 
-    // Update the stock price to the next day's price
+    /**
+     * Updates the stock to the next day's price and advances the index.
+     */
     public void updatePrice() {
-        // Check if there's still data left to update
-        if (indx < historicalData.size() - 1) {
-            // Increment index and get the next day's stock data
-            indx += 1;
-            StockData nextData = historicalData.get(indx);
+        if (index < historicalData.size() - 1) {
+            index += 1;
+            StockData nextData = historicalData.get(index);
             currentPrice = nextData.getPrice();
-
-            // Recalculate RSI for the current index
-            rsiIndicator.getValue(indx);
+            rsiIndicator.getValue(index); // Access to update internal state
         }
     }
 
-    // Calculate the moving average for a given number of days
+    /**
+     * Calculates the moving average over the given number of days.
+     *
+     * @param days Number of days for the moving average
+     * @return Moving average value
+     */
     public double calculateMovingAverage(int days) {
-        int startIndex = Math.max(0, indx - days);
+        int startIndex = Math.max(0, index - days);
         double sum = 0;
-        for (int i = startIndex; i < indx + 1; i++) {
+        for (int i = startIndex; i <= index; i++) {
             sum += historicalData.get(i).getPrice();
         }
-        return sum / (indx - startIndex + 1);
+        return sum / (index - startIndex + 1);
     }
 
-    // Calculate the volatility of the stock price over a given period
+    /**
+     * Calculates the volatility (standard deviation) over a given number of days.
+     *
+     * @param days Number of days for volatility calculation
+     * @return Volatility value
+     */
     public double calculateVolatility(int days) {
-        int startIndex = Math.max(0, indx - days);
-        double average = calculateMovingAverage(days);
-        double sumSquaredDifferences = 0;
-        for (int i = startIndex; i < indx + 1; i++) {
-            double diff = historicalData.get(i).getPrice() - average;
-            sumSquaredDifferences += diff * diff;
-        }
-        return Math.sqrt(sumSquaredDifferences / days);
+        return calculateStandardDeviation(days);
     }
 
-    // Get the symbol of the stock (e.g., "AAPL", "GOOG")
+
+    /**
+     * Returns the stock's symbol.
+     *
+     * @return Stock symbol
+     */
     public String getSymbol() {
         return symbol;
     }
 
-    // Get historical data for analysis
+    /**
+     * Returns the historical data list.
+     *
+     * @return List of historical stock data
+     */
     public List<StockData> getHistoricalData() {
         return historicalData;
     }
 
-
-    // Calculate the RSI for the current period (given an RSI period)
+    /**
+     * Calculates the Relative Strength Index (RSI) for the current index.
+     *
+     * @param period RSI period to calculate
+     * @return RSI value
+     */
     public double calculateRSI(int period) {
-        // If period is different from current indicator, create a new one
-        if (rsiIndicator == null || period != 14) { // Assuming 14 was the default
+        if (rsiIndicator == null || period != DEFAULT_RSI_PERIOD) {
             ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
             rsiIndicator = new RSIIndicator(closePrice, period);
         }
 
-        // Use ta4j to calculate RSI at current index
-        if (indx < period) {
-            return 50.0; // Return neutral RSI if not enough data
+        if (index < period) {
+            return 50.0; // Neutral RSI if not enough data
         }
 
-        return rsiIndicator.getValue(indx).doubleValue();
+        return rsiIndicator.getValue(index).doubleValue();
     }
 
-    // Calculate the standard deviation for the stock price over a given period
+    /**
+     * Calculates the standard deviation of prices over a given number of days.
+     *
+     * @param days Number of days to calculate standard deviation
+     * @return Standard deviation value
+     */
     public double calculateStandardDeviation(int days) {
-        int startIndex = Math.max(0, historicalData.size() - days);
+        int startIndex = Math.max(0, index - days);
         double mean = calculateMovingAverage(days);
         double sumSquaredDifferences = 0;
 
-        for (int i = startIndex; i < historicalData.size(); i++) {
+        for (int i = startIndex; i <= index; i++) {
             double diff = historicalData.get(i).getPrice() - mean;
             sumSquaredDifferences += diff * diff;
         }
 
-        return Math.sqrt(sumSquaredDifferences / (historicalData.size() - startIndex - 1));
+        return Math.sqrt(sumSquaredDifferences / (index - startIndex));
     }
 }

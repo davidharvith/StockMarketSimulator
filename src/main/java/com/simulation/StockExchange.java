@@ -22,6 +22,16 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class StockExchange {
+    private static final int SIMULATION_STEP_DAYS = 1;
+    private static final int MONTH_START_DAY = 1;
+    private static final String CSV_OUTPUT_PATH = "portfolio_values.csv";
+    private static final String CSV_HEADER = "Date,Trader,Portfolio Value\n";
+    private static final String PNG_OUTPUT_PATH = "portfolio_chart.png";
+    private static final String CHART_TITLE = "Trader Portfolio Values Over Time";
+    private static final String CHART_X_LABEL = "Date";
+    private static final String CHART_Y_LABEL = "Portfolio Value";
+    private static final String FRAME_TITLE = "Portfolio Value Plot";
+
     private final List<Stock> stocks;
     private final List<Trader> traders;
     private LocalDate currentDate;
@@ -34,36 +44,37 @@ public class StockExchange {
         this.currentDate = startDate;
     }
 
-    // Update the simulation date (could be daily, weekly, etc.)
+    /**
+     * Advances the simulation date by one day.
+     */
     public void updateDate() {
-        currentDate = currentDate.plusDays(1); // Increment by one day
+        currentDate = currentDate.plusDays(SIMULATION_STEP_DAYS);
     }
 
-    // Update stock prices (this could be pulling data or using a model)
+    /**
+     * Updates all stock prices.
+     */
     public void updateStocks() {
         for (Stock stock : stocks) {
-            stock.updatePrice(); // Stock class should have logic for price changes
+            stock.updatePrice();
         }
     }
 
-    // Let all traders trade (buy/sell based on their strategy)
+    /**
+     * Runs the simulation day-by-day until the present date.
+     * Traders make decisions and portfolio values are tracked monthly.
+     * At the end, results are output to CSV and plotted.
+     */
     public void runSimulation() {
         LocalDate today = LocalDate.now();
         Map<LocalDate, Map<String, Double>> portfolioValues = new TreeMap<>();
 
-        // Ensure the simulation doesn't run beyond today's date
         while (!currentDate.isAfter(today)) {
-
-
-
-            // Let each trader make their move
             for (Trader trader : traders) {
-
-                trader.makeDecision(stocks); // Trader class should have logic for decision-making
+                trader.makeDecision(stocks);
             }
 
-            // Track portfolio values on a monthly basis
-            if (currentDate.getDayOfMonth() == 1) { // Only track on the first day of each month
+            if (currentDate.getDayOfMonth() == MONTH_START_DAY) {
                 Map<String, Double> monthlyValues = new HashMap<>();
                 for (Trader trader : traders) {
                     double portfolioValue = getPortfolioValue(trader);
@@ -71,96 +82,97 @@ public class StockExchange {
                 }
                 portfolioValues.put(currentDate, monthlyValues);
             }
+
             updateDate();
             updateStocks();
-
         }
 
-        // Output portfolio values to CSV
         outputPortfolioValuesToCSV(portfolioValues);
-
-        // Plot the portfolio values
         plotPortfolioValues(portfolioValues);
 
-        // Once simulation is done, you can display or log the results
         System.out.println("Simulation complete up to " + today);
     }
 
+    /**
+     * Calculates the total value of a trader's portfolio.
+     */
     private double getPortfolioValue(Trader trader) {
         double result = trader.getCash();
-        for(Stock stock: stocks){
-            result+= trader.getStockTotalValue(stock);
+        for (Stock stock : stocks) {
+            result += trader.getStockTotalValue(stock);
         }
         return result;
     }
 
+    /**
+     * Outputs portfolio values to a CSV file.
+     */
     private void outputPortfolioValuesToCSV(Map<LocalDate, Map<String, Double>> portfolioValues) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("portfolio_values.csv"))) {
-            writer.write("Date,Trader,Portfolio Value\n");
-
-            // Now entries are sorted by date since we're using TreeMap
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(CSV_OUTPUT_PATH))) {
+            writer.write(CSV_HEADER);
             for (Map.Entry<LocalDate, Map<String, Double>> entry : portfolioValues.entrySet()) {
                 LocalDate date = entry.getKey();
                 for (Map.Entry<String, Double> traderEntry : entry.getValue().entrySet()) {
                     writer.write(date + "," + traderEntry.getKey() + "," + traderEntry.getValue() + "\n");
                 }
             }
-            System.out.println("Portfolio values saved to portfolio_values.csv");
+            System.out.println("Portfolio values saved to " + CSV_OUTPUT_PATH);
         } catch (IOException e) {
             System.out.println("Error writing to CSV: " + e.getMessage());
         }
     }
 
+    /**
+     * Plots the portfolio values using JFreeChart.
+     */
     private void plotPortfolioValues(Map<LocalDate, Map<String, Double>> portfolioValues) {
         XYSeriesCollection dataset = getXySeriesCollection(portfolioValues);
-
         List<String> stockSymbols = getStockSymbols();
         String stocksUsed = String.join(", ", stockSymbols);
 
         JFreeChart chart = ChartFactory.createXYLineChart(
-                "Trader Portfolio Values Over Time",
-                "Date",
-                "Portfolio Value",
+                CHART_TITLE,
+                CHART_X_LABEL,
+                CHART_Y_LABEL,
                 dataset,
                 org.jfree.chart.plot.PlotOrientation.VERTICAL,
                 true,
                 true,
                 false
         );
+
         chart.addSubtitle(new org.jfree.chart.title.TextTitle("Stocks: " + stocksUsed));
 
         XYPlot plot = (XYPlot) chart.getPlot();
-        DateAxis dateAxis = new DateAxis("Date");
+        DateAxis dateAxis = new DateAxis(CHART_X_LABEL);
 
-        // Find the first and last dates
         List<LocalDate> sortedDates = new ArrayList<>(portfolioValues.keySet());
         Collections.sort(sortedDates);
         if (!sortedDates.isEmpty()) {
             Date startDate = Date.from(sortedDates.get(0).atStartOfDay(ZoneId.systemDefault()).toInstant());
             Date endDate = Date.from(sortedDates.get(sortedDates.size() - 1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-            dateAxis.setRange(startDate, endDate); // Set range to first and last date
+            dateAxis.setRange(startDate, endDate);
         }
 
         plot.setDomainAxis(dateAxis);
 
-        // Display chart in a JFrame
-        ChartPanel chartPanel = new ChartPanel(chart);
-        JFrame frame = new JFrame("Portfolio Value Plot");
+        JFrame frame = new JFrame(FRAME_TITLE);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.add(chartPanel);
+        frame.add(new ChartPanel(chart));
         frame.pack();
         frame.setVisible(true);
 
-        // Save chart as an image
         try {
-            File file = new File("portfolio_chart.png");
-            ChartUtils.saveChartAsPNG(file, chart, 800, 600);
-            System.out.println("Chart saved as portfolio_chart.png");
+            ChartUtils.saveChartAsPNG(new File(PNG_OUTPUT_PATH), chart, 800, 600);
+            System.out.println("Chart saved as " + PNG_OUTPUT_PATH);
         } catch (IOException e) {
             System.out.println("Error saving chart: " + e.getMessage());
         }
     }
 
+    /**
+     * Converts portfolio values into a dataset for plotting.
+     */
     private static XYSeriesCollection getXySeriesCollection(Map<LocalDate, Map<String, Double>> portfolioValues) {
         XYSeriesCollection dataset = new XYSeriesCollection();
         Map<String, XYSeries> seriesMap = new HashMap<>();
@@ -179,14 +191,15 @@ public class StockExchange {
                     return newSeries;
                 });
 
-                series.add(Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant()).getTime(), portfolioValue);
-
+                long timestamp = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant()).getTime();
+                series.add(timestamp, portfolioValue);
             }
         }
+
         return dataset;
     }
 
-    // Getters and setters
+    // Getters
     public LocalDate getCurrentDate() {
         return currentDate;
     }

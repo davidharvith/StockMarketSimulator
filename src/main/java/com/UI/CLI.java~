@@ -10,153 +10,142 @@ import com.strategy.StrategyFactory;
 import java.time.LocalDate;
 import java.util.*;
 
-/**
- * Command Line Interface for running the stock trading simulation.
- */
 public class CLI {
-
-    private static final int MAX_STOCKS = 25;
-    private static final String SYMBOL_PROMPT = "Enter stock symbols separated by spaces (up to %d stocks), press enter when done:";
-    private static final String INVALID_SYMBOL_MSG = "❌ Invalid stock symbol: ";
-    private static final String SYMBOL_LIMIT_MSG = "⚠️ Please enter up to %d valid stock symbols.";
-    private static final String STRATEGY_COUNT_PROMPT = "How many strategies do you want to use?";
-    private static final String STRATEGY_NAME_PROMPT = "Enter strategy %d name. Choose from the following: ";
-    private static final String INVALID_STRATEGY_MSG = "Invalid strategy name. Please choose a valid strategy.";
-    private static final String SIM_DURATION_PROMPT = "Enter the number of years for the simulation:";
-    private static final String STRATEGY_STARTING_MONEY_PROMPT = "Enter starting money for trader using strategy %s:";
-    private static final String POSITIVE_NUMBER_MSG = "Please enter a positive number";
-    private static final String INVALID_NUMBER_MSG = "Invalid input. Please enter a valid number.";
-
     public static void main(String[] args) throws DataFetcher.APILimitExceededException {
         Scanner scanner = new Scanner(System.in);
         DataFetcher dataFetcher = new DataFetcher();
 
+        // Get stock symbols
         List<String> stockSymbols = getStockSymbols(scanner, dataFetcher);
+
+        // Get strategies count
         int strategyCount = getStrategyCount(scanner);
+
+        // Get strategy names
         List<Strategy> strategies = getStrategies(scanner, strategyCount);
+
+        // Get simulation duration
         int yearsBack = getSimulationDuration(scanner);
+
+        // Fetch stock data
         List<Stock> stocks = dataFetcher.fetchHistoricalData(stockSymbols, yearsBack);
+
+        // Create traders
         List<Trader> traders = getTraders(scanner, strategies);
 
+        // Create and run StockExchange simulation
         StockExchange exchange = new StockExchange(stocks, traders, LocalDate.now().minusYears(yearsBack));
         exchange.runSimulation();
 
         scanner.close();
+
+
     }
 
-    /**
-     * Prompts user to input valid stock symbols.
-     */
+    // Method to get stock symbols
     private static List<String> getStockSymbols(Scanner scanner, DataFetcher dataFetcher) {
         List<String> stockSymbols;
 
         while (true) {
-            stockSymbols = new ArrayList<>();
-            System.out.printf((SYMBOL_PROMPT) + "%n", MAX_STOCKS);
+            stockSymbols = new ArrayList<>();  // Reset list every loop
+            System.out.println("Enter stock symbols separated by spaces (up to 25 stocks), press enter when done:");
 
             String[] inputs = scanner.nextLine().split(" ");
-            boolean allValid = true;
+            boolean allValid = true;  // Track validity
 
             for (String symbol : inputs) {
                 if (dataFetcher.isValidStockSymbol(symbol)) {
                     stockSymbols.add(symbol);
                 } else {
-                    System.out.println(INVALID_SYMBOL_MSG + symbol);
-                    allValid = false;
+                    System.out.println("❌ Invalid stock symbol: " + symbol);
+                    allValid = false;  // Found an invalid symbol
                 }
             }
 
-            if (allValid && !stockSymbols.isEmpty() && stockSymbols.size() <= MAX_STOCKS) {
+            // If all inputs are valid and within the limit, break out of loop
+            if (allValid && !stockSymbols.isEmpty() && stockSymbols.size() <= 25) {
                 break;
             }
 
-            System.out.printf((SYMBOL_LIMIT_MSG) + "%n", MAX_STOCKS);
+            System.out.println("⚠️ Please enter up to 25 valid stock symbols.");
         }
-
         return stockSymbols;
     }
 
-    /**
-     * Prompts user to input number of strategies to use.
-     */
+
+    // Method to get strategy count
     private static int getStrategyCount(Scanner scanner) {
         int strategyCount;
         while (true) {
-            System.out.println(STRATEGY_COUNT_PROMPT);
+            System.out.println("How many strategies do you want to use?");
             try {
                 strategyCount = Integer.parseInt(scanner.nextLine());
                 if (strategyCount > 0) {
                     break;
                 } else {
-                    System.out.println(POSITIVE_NUMBER_MSG + " for the strategy count.");
+                    System.out.println("Please enter a positive number for the strategy count.");
                 }
             } catch (NumberFormatException e) {
-                System.out.println(INVALID_NUMBER_MSG);
+                System.out.println("Invalid input. Please enter a number.");
             }
         }
         return strategyCount;
     }
 
-    /**
-     * Prompts user to select strategy names.
-     */
+    // Method to get strategies
     private static List<Strategy> getStrategies(Scanner scanner, int strategyCount) {
         List<Strategy> strategies = new ArrayList<>();
         for (int i = 0; i < strategyCount; i++) {
             while (true) {
-                System.out.println(String.format(STRATEGY_NAME_PROMPT, i + 1) + StrategyFactory.getAvailableStrategiesNames());
+                System.out.println("Enter strategy " + (i + 1) + " name. Choose from the following: " + StrategyFactory.getAvailableStrategiesNames());
                 String strategyName = scanner.nextLine();
                 Strategy strategy = StrategyFactory.create(strategyName);
                 if (strategy != null) {
                     strategies.add(strategy);
                     break;
                 } else {
-                    System.out.println(INVALID_STRATEGY_MSG);
+                    System.out.println("Invalid strategy name. Please choose a valid strategy.");
                 }
             }
         }
         return strategies;
     }
 
-    /**
-     * Prompts user for simulation duration in years.
-     */
+    // Method to get simulation duration
     private static int getSimulationDuration(Scanner scanner) {
         int yearsBack;
         while (true) {
-            System.out.println(SIM_DURATION_PROMPT);
+            System.out.println("Enter the number of years for the simulation:");
             try {
                 yearsBack = Integer.parseInt(scanner.nextLine());
                 if (yearsBack > 0) {
                     break;
                 } else {
-                    System.out.println(POSITIVE_NUMBER_MSG + " for the number of years.");
+                    System.out.println("Please enter a positive number for the number of years.");
                 }
             } catch (NumberFormatException e) {
-                System.out.println(INVALID_NUMBER_MSG);
+                System.out.println("Invalid input. Please enter a number.");
             }
         }
         return yearsBack;
     }
 
-    /**
-     * Prompts user to enter trader starting money for each strategy.
-     */
+    // Method to create traders
     private static List<Trader> getTraders(Scanner scanner, List<Strategy> strategies) {
         List<Trader> traders = new ArrayList<>();
         for (Strategy strategy : strategies) {
             while (true) {
-                System.out.printf((STRATEGY_STARTING_MONEY_PROMPT) + "%n", strategy.getName());
+                System.out.println("Enter starting money for trader using strategy " + strategy.getName() + ":");
                 try {
                     double startingMoney = Double.parseDouble(scanner.nextLine());
                     if (startingMoney > 0) {
                         traders.add(new Trader(strategy, startingMoney));
                         break;
                     } else {
-                        System.out.println("Starting money must be positive. " + POSITIVE_NUMBER_MSG + ".");
+                        System.out.println("Starting money must be positive. Please enter a valid amount.");
                     }
                 } catch (NumberFormatException e) {
-                    System.out.println(INVALID_NUMBER_MSG);
+                    System.out.println("Invalid input. Please enter a valid number for starting money.");
                 }
             }
         }
